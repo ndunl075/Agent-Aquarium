@@ -22,7 +22,8 @@
     "test:desktop": "node scripts/validate/desktop-smoke.mjs",
     "package": "pnpm build && electron-builder --config apps/desktop/electron-builder.yml --publish never",
     "package:win": "pnpm package --win",
-    "cli": "node packages/cli/dist/bin.cjs"
+    "cli": "node packages/cli/dist/bin.cjs",
+    "test:portable": "node scripts/validate/portable-smoke.mjs"
   },
   "dependencies": {
     "zod": "4.6.6",

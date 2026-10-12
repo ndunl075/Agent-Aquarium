@@ -7,10 +7,12 @@ import { createInitialState, reduceEvent, projectSnapshot, actorKey } from '@aqu
 import { aquariumDataDir, installClaude, uninstallClaude, previewClaude, drainSpool, quoteCommandArgument } from '@aquarium/cli';
 import { AquariumStore } from './store';
 import { startReceiver } from './receiver';
+import { stagePortableCompanion } from './companion';
 
 app.setName('Agent Aquarium');
 const dataDir=aquariumDataDir();app.setPath('userData',dataDir);
 let window:BrowserWindow|null=null;let tray:Tray|null=null;let store:AquariumStore;let receiver:Awaited<ReturnType<typeof startReceiver>>|undefined;
+let portableCompanion:{runtime:string;script:string}|undefined;
 let demo=false;let demoState=createInitialState();let deltaSequence=0;let stopping=false;let timer:ReturnType<typeof setInterval>;let demoStep=0;let lastNotification=0;
 const snapshot=():AquariumSnapshot=>({...projectSnapshot(demo?demoState:store.state,Date.now(),store.preferences,demo),sequence:deltaSequence});
 function publish(){deltaSequence++;if(window&&!window.isDestroyed())window.webContents.send(IPC_CHANNELS.delta,{version:1,sequence:deltaSequence,snapshot:snapshot()});}
@@ -35,8 +37,8 @@ function openWindow(){
 const provider=z.literal('claude-code');
 function registerIPC(){
  const directory=app.isPackaged?join(process.resourcesPath,'cli'):join(__dirname,'cli');
- const runtime=join(directory,process.platform==='win32'?'node.exe':'node');
- const script=join(directory,'bin.cjs');
+ const runtime=portableCompanion?.runtime??join(directory,process.platform==='win32'?'node.exe':'node');
+ const script=portableCompanion?.script??join(directory,'bin.cjs');
  const command=`${quoteCommandArgument(runtime)} ${quoteCommandArgument(script)}`;
  const installOptions={executable:runtime,args:[script]};
  const on=(channel:string,handler:(...args:unknown[])=>unknown)=>ipcMain.handle(channel,(event,...args)=>{
@@ -73,7 +75,9 @@ function advanceDemo(){
 }
 async function boot(){
  if(app.isPackaged)session.defaultSession.webRequest.onBeforeRequest((details,callback)=>callback({cancel:!['file:','data:','blob:','devtools:'].includes(new URL(details.url).protocol)}));
- await mkdir(dataDir,{recursive:true,mode:0o700});store=new AquariumStore(join(dataDir,'aquarium.db'));
+ await mkdir(dataDir,{recursive:true,mode:0o700});
+ if(app.isPackaged&&process.env.PORTABLE_EXECUTABLE_DIR)portableCompanion=await stagePortableCompanion(join(process.resourcesPath,'cli'),dataDir);
+ store=new AquariumStore(join(dataDir,'aquarium.db'));
  receiver=await startReceiver(dataDir,consume);await drainSpool(dataDir,consume);registerIPC();
  const icon=nativeImage.createFromPath(join(__dirname,'icon.png')).resize({width:24,height:24});
  try{tray=new Tray(icon);tray.setToolTip('Agent Aquarium');tray.setContextMenu(Menu.buildFromTemplate([{label:'Open Aquarium',click:openWindow},{label:'Mini Tank',click:()=>{openWindow();windowMode('mini');}},{type:'separator'},{label:'Quit',click:()=>{stopping=true;app.quit();}}]));tray.on('double-click',openWindow);}catch{tray=null;}

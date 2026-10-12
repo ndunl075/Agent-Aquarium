@@ -31,3 +31,5 @@ Context usage is shown only when supplied by observed telemetry. Missing and nul
 ## Your agent keeps working
 
 Hook forwarding is best effort and fail open. An unavailable aquarium, invalid payload, damaged queue item, or local transport error must not block or reject the observed agent's work. Agent Aquarium does not change permission decisions, prompts, tool execution, or model outputs. Review and approve the hook preview before installation; uninstall removes only aquarium-owned entries.
+
+Windows portable builds retain a versioned Node companion, its license, and content-addressed CLI scripts under `userData/companion/`. These contain application code, not agent history, and remain after Clear Local Data so installed hooks continue failing open while the desktop is closed. Older companion scripts remain to keep previously installed hook paths valid; uninstall provider hooks before manually removing this folder.

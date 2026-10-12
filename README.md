@@ -80,3 +80,5 @@ Project basenames and session identifiers can still be sensitive. Use Capture Mo
 ## Contribute
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [ARCHITECTURE.md](ARCHITECTURE.md). The acceptance checklist separates automated evidence from manual real-agent and clean-install checks. Performance figures in the architecture are targets until measured on a recorded machine.
+
+Windows portable hooks use a versioned companion copied to Aquarium’s per-user data directory. This keeps the CLI available after the portable extraction closes, so events can queue until the next launch. `pnpm test:portable` verifies extraction, a live hook, app-down queuing, and replay against the built portable artifact.
