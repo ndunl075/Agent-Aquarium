@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 // Dependency-free distribution sanity check; not a substitute for clean-install QA.
 const required = ['LICENSE','README.md','CONTRIBUTING.md','docs/privacy.md','docs/acceptance.md','pnpm-lock.yaml','apps/desktop/dist/main.cjs','apps/desktop/dist/preload.cjs','apps/desktop/dist/renderer/index.html'];
 const missing=[];
+required.push(`apps/desktop/dist/cli/${process.platform==='win32'?'node.exe':'node'}`,'apps/desktop/dist/cli/bin.cjs','apps/desktop/dist/cli/LICENSE.txt');
 for (const file of required) {
   try { await access(resolve(file)); } catch { missing.push(file); }
 }

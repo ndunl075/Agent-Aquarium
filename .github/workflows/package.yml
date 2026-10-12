@@ -26,15 +26,13 @@ jobs:
           run_install: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Ensure SQLite targets Node for tests
         run: pnpm rebuild better-sqlite3
       - run: pnpm check
       - run: node scripts/validate/release-files.mjs
-      - name: Rebuild SQLite for the Electron ABI after Node tests
-        run: pnpm exec electron-rebuild -f -w better-sqlite3
       - name: Build unsigned distribution
         run: pnpm package --${{ matrix.target }}
       - uses: actions/upload-artifact@v4

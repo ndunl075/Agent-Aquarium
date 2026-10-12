@@ -1,6 +1,6 @@
 # Release acceptance and evidence
 
-This checklist is an evidence template. Unchecked items are outstanding manual or release checks; a generated artifact or passing unit suite does not check them automatically. Record evidence for each release candidate, without exposing private prompts, tokens, commands, filenames, or unrelated user settings.
+Candidate engineering evidence is recorded in [verification-2026-10-12.md](verification-2026-10-12.md). This checklist is an evidence template. Unchecked items are outstanding manual or release checks; a generated artifact or passing unit suite does not check them automatically. Record evidence for each release candidate, without exposing private prompts, tokens, commands, filenames, or unrelated user settings.
 
 ## Candidate record
 

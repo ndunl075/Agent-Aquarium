@@ -8,22 +8,42 @@
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@11.3.0",
-  "engines": { "node": ">=22.12" },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "pnpm typecheck && pnpm test && pnpm build",
-    "start": "electron apps/desktop/dist/main.cjs",
-    "package": "pnpm build && electron-builder install-app-deps && electron-builder --config apps/desktop/electron-builder.yml",
+    "start": "node scripts/start.mjs",
+    "desktop:deps": "electron-builder install-app-deps",
+    "test:desktop": "node scripts/validate/desktop-smoke.mjs",
+    "package": "pnpm build && electron-builder --config apps/desktop/electron-builder.yml",
     "package:win": "pnpm package --win",
-    "cli": "tsx packages/cli/src/bin.ts"
+    "cli": "node packages/cli/dist/bin.cjs"
   },
   "dependencies": {
-    "zod": "4.6.6", "react": "19.3.0", "react-dom": "19.3.0", "pixi.js": "8.22.0", "better-sqlite3": "13.0.3"
+    "zod": "4.6.6",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "pixi.js": "8.22.0",
+    "better-sqlite3": "13.0.3"
   },
   "devDependencies": {
-    "typescript": "latest", "@types/node": "^22.0.0", "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0", "@types/better-sqlite3": "^7.6.0", "electron": "44.7.0", "electron-builder": "latest", "@electron/rebuild": "latest", "esbuild": "latest", "vite": "8.3.4", "vitest": "5.0.3", "tsx": "latest", "@playwright/test": "latest"
+    "typescript": "7.0.2",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/better-sqlite3": "7.6.13",
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3",
+    "@electron/rebuild": "4.2.1",
+    "esbuild": "0.28.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.3",
+    "tsx": "4.23.15",
+    "@playwright/test": "1.64.0"
   }
 }

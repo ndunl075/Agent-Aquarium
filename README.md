@@ -1,12 +1,14 @@
 # Agent Aquarium
 
+The desktop installer includes a standalone Node runtime and CLI bundle for hooks. End users do not need Node, pnpm, an account, or an AI API subscription to run the aquarium or its offline demo. Building from source uses the exact Node version in `.node-version` (22.23.2) so the bundled executable and redistribution notices match.
+
 A local desktop aquarium for your coding agents. Each observed session gets its own fish, including several sessions in the same repository. Real lifecycle events drive the fish; the tank stays on your machine and runs without an account, subscription, hosted database, or AI service.
 
 Built with Electron, React, PixiJS, TypeScript, Zod, and SQLite. Windows is the first packaging priority, with macOS and Linux build paths. The project is MIT licensed.
 
 ## Run from source
 
-Install Git, Node.js **22.12 or newer**, and **pnpm 11.3.0**. Native SQLite compilation may require a C++ toolchain: Visual Studio Build Tools on Windows, Xcode command-line tools on macOS, or a compiler and Python on Linux. Dependency installation requires internet access; normal aquarium operation does not.
+Install Git, Node.js **22.23.2** (see `.node-version`), and **pnpm 11.3.0**. Native SQLite compilation may require a C++ toolchain: Visual Studio Build Tools on Windows, Xcode command-line tools on macOS, or a compiler and Python on Linux. Dependency installation requires internet access; normal aquarium operation does not.
 
 ```sh
 git clone https://github.com/ndunl075/Agent-Aquarium.git
@@ -17,7 +19,7 @@ pnpm exec electron-rebuild -f -w better-sqlite3
 pnpm dev
 ```
 
-`pnpm check` runs type checking, unit/integration tests, and the production build. Tests use your **Node** runtime; the desktop app uses **Electron**. SQLite is a native module, so its binary must match the runtime in use. Run tests before rebuilding it for Electron. When returning to tests after a desktop rebuild, run `pnpm rebuild better-sqlite3` first; if the existing binary remains unchanged, reinstall/rebuild the dependency for Node using your platform's native build tools. A module-version/ABI mismatch is a build issue, not damaged aquarium data.
+`pnpm check` runs type checking, unit/integration tests, and the production build. Tests use your **Node** runtime; the desktop app uses **Electron**. SQLite is a native module, so its binary must match the runtime in use. `pnpm dev` and `pnpm start` automatically prepare the Electron binary when needed; packaging also rebuilds it. Run tests before rebuilding it for Electron. When returning to tests after a desktop rebuild, run `pnpm rebuild better-sqlite3` first; if the existing binary remains unchanged, reinstall/rebuild the dependency for Node using your platform's native build tools. A module-version/ABI mismatch is a build issue, not damaged aquarium data.
 
 `pnpm dev` starts the local Vite development server and Electron. The development server is a development tool; packaged builds contain local compiled assets. To launch a production build locally:
 

@@ -86,7 +86,8 @@ export interface AquariumDesktopAPI {
   setWindowMode(mode:'full'|'mini'):Promise<void>;
   clearLocalData():Promise<void>;
   captureScreenshot():Promise<{saved:boolean}>;
+  checkForUpdates():Promise<void>;
 }
 export interface ProviderCapabilities { sessions:boolean; toolLifecycle:boolean; attention:boolean; subagents:boolean; contextPercentage:'none'|'optional'|'reliable'; guaranteedSessionEnd:boolean }
 export interface ProviderAdapter<RawEvent> {readonly id:Provider; readonly capabilities:ProviderCapabilities; normalize(raw:RawEvent):AquariumEventV1|null;install?():Promise<InstallResult>;uninstall?():Promise<InstallResult>;doctor?():Promise<SafeDiagnostics>}
-export const IPC_CHANNELS = Object.freeze({snapshot:'aquarium:snapshot',delta:'aquarium:delta',preferences:'aquarium:preferences',install:'aquarium:install',preview:'aquarium:preview',uninstall:'aquarium:uninstall',diagnostics:'aquarium:diagnostics',demo:'aquarium:demo',window:'aquarium:window',clear:'aquarium:clear',capture:'aquarium:capture'});
+export const IPC_CHANNELS = Object.freeze({snapshot:'aquarium:snapshot',delta:'aquarium:delta',preferences:'aquarium:preferences',install:'aquarium:install',preview:'aquarium:preview',uninstall:'aquarium:uninstall',diagnostics:'aquarium:diagnostics',demo:'aquarium:demo',window:'aquarium:window',clear:'aquarium:clear',capture:'aquarium:capture',updates:'aquarium:updates'});
