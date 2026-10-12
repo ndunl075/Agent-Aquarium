@@ -5,6 +5,7 @@ import path from 'node:path';
 import http from 'node:http';
 import { normalizeClaudeEvent } from '@aquarium/adapters';
 import { drainSpool, forwardEvent } from '@aquarium/cli';
+import { projectSnapshot } from '@aquarium/domain';
 import type { AquariumEventV1 } from '@aquarium/protocol';
 import { startReceiver } from '../apps/desktop/src/main/receiver.js';
 import { AquariumStore } from '../apps/desktop/src/main/store.js';
@@ -30,6 +31,6 @@ describe('production event pipeline and durable state',()=>{
   it('replays cold-start spool once and restores live sessions as stale after reopening SQLite',async()=>{
     const dir=await directory(),database=path.join(dir,'aquarium.db'),original=fact('cold-session');expect(await forwardEvent(original,{dataDir:dir})).toBe('queued');let store=new AquariumStore(database);let open=true;cleanups.push(()=>{if(open)store.close();});
     expect(await drainSpool(dir,e=>{store.accept(e);})).toBe(1);expect(await drainSpool(dir,e=>{store.accept(e);})).toBe(0);expect(store.state.sequence).toBe(1);store.close();open=false;store=new AquariumStore(database);open=true;
-    expect(Object.values(store.state.agents)).toHaveLength(1);expect(Object.values(store.state.agents)[0]?.status).toBe('stale');expect(store.accept(original)).toBe(false);expect(store.state.sequence).toBe(1);
+    expect(Object.values(store.state.agents)).toHaveLength(1);expect(projectSnapshot(store.state,Date.now(),store.preferences).agents[0]?.status).toBe('stale');expect(Object.values(store.state.agents)[0]?.status).toBe('starting');expect(store.accept(original)).toBe(false);expect(store.state.sequence).toBe(1);
   });
 });

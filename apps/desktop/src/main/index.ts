@@ -49,9 +49,9 @@ function registerIPC(){
  on(IPC_CHANNELS.install,async(value)=>{provider.parse(value);return installClaude(installOptions);});
  on(IPC_CHANNELS.uninstall,async(value)=>{provider.parse(value);return uninstallClaude(installOptions);});
  on(IPC_CHANNELS.diagnostics,async()=>{
-  let installed=false;try{const preview=await previewClaude(installOptions);installed=!preview.changed;}catch{/* Do not expose settings contents. */}
+  const issues:string[]=[];let installed=false;try{const preview=await previewClaude(installOptions);installed=!preview.changed;}catch{issues.push('Claude settings could not be read safely. Repair invalid JSON or file access, then retry connection.');}
   let queued=0;try{queued=(await readdir(join(dataDir,'spool'))).filter(file=>file.endsWith('.json')).length;}catch{}
-  return {version:1,listenerRunning:!!receiver,providerInstalled:installed,queuedEvents:queued,issues:[],appVersion:app.getVersion()};
+  return {version:1,listenerRunning:!!receiver,providerInstalled:installed,queuedEvents:queued,issues,appVersion:app.getVersion()};
  });
  on(IPC_CHANNELS.demo,(enabled)=>{demo=z.boolean().parse(enabled);demoState=createInitialState();demoStep=0;if(demo)advanceDemo();publish();});
  on(IPC_CHANNELS.window,(mode)=>{const checked=z.enum(['full','mini']).parse(mode);store.setPreferences({...store.preferences,tankSize:checked});windowMode(checked);publish();});
