@@ -1,0 +1,1 @@
+{"name":"@aquarium/cli","version":"0.1.0","type":"module","exports":"./src/index.ts","bin":{"agent-aquarium":"dist/bin.cjs"},"files":["dist"],"engines":{"node":">=22"},"scripts":{"build":"esbuild src/bin.ts --bundle --platform=node --format=cjs --outfile=dist/bin.cjs --alias:@aquarium/protocol=../protocol/src/index.ts --alias:@aquarium/adapters=../adapters/src/index.ts"}}
