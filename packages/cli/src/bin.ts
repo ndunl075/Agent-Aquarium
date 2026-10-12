@@ -17,9 +17,10 @@ async function main():Promise<void> {
   if(isStatus){if(args[1]==='claude')await runStatusBridge(await stdin());return;}
   if((args[0]==='install'||args[0]==='uninstall')&&args[1]==='claude'){
     const remove=args[0]==='uninstall';
-    if(!remove && !args.includes('--yes')) {const p=await previewClaude();console.log(`Preview for ${p.settingsPath}\n${p.preview}\nRun agent-aquarium install claude --yes to apply. Add --status-line to opt in to context metrics.`);return;}
-    const result=remove?await uninstallClaude():await installClaude();console.log(result.message);if(!result.ok)process.exitCode=1;
-    if(args.includes('--status-line')||remove){const status=await installStatusBridge({},remove);console.log(status.message);if(!status.ok)process.exitCode=1;}return;
+    const launch={executable:process.execPath,args:[path.resolve(process.argv[1])]};
+    if(!remove && !args.includes('--yes')) {const p=await previewClaude(launch);console.log(`Preview for ${p.settingsPath}\n${p.preview}\nRun this CLI with install claude --yes to apply. Add --status-line to opt in to context metrics.`);return;}
+    const result=remove?await uninstallClaude(launch):await installClaude(launch);console.log(result.message);if(!result.ok)process.exitCode=1;
+    if(args.includes('--status-line')||remove){const status=await installStatusBridge(launch,remove);console.log(status.message);if(!status.ok)process.exitCode=1;}return;
   }
   if(args[0]==='emit') {if(args.includes('--help')){console.log('Pipe one normalized v1 custom-provider JSON event into agent-aquarium emit. See docs/protocol.md.');return;}const event=aquariumEventSchema.parse(JSON.parse(await stdin(16384,5000)));if(event.provider!=='custom')throw new Error('emit requires provider custom');console.log(await forwardEvent(event));return;}
   if(args[0]==='doctor') {
