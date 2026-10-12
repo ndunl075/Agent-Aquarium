@@ -15,12 +15,12 @@ Candidate engineering evidence is recorded in [verification-2026-10-12.md](verif
 
 Run `pnpm install --frozen-lockfile`, then `pnpm check` with a Node-compatible SQLite binary. Record the actual output. The intended coverage is strict schemas, deterministic reducer ordering/identity, installer preservation/rollback, fail-open CLI, receiver rejection cases, spool replay, storage migration/retention, and renderer build/type safety. Inspect current test files rather than assuming this list proves coverage.
 
-- [ ] Type checking, unit/integration tests and production build pass on the candidate commit.
-- [ ] Dependency audit reviewed; applicable unresolved findings documented.
-- [ ] Dependency licenses reviewed for distribution compatibility; include required notices.
-- [ ] After checks, SQLite rebuilt for Electron and package build succeeds.
-- [ ] Artifact contents include local renderer assets and a usable companion CLI without developer-machine paths.
-- [ ] Release verification script passes: `node scripts/validate/release-files.mjs`.
+- [x] Type checking, unit/integration tests and production build pass on the candidate commit.
+- [x] Dependency audit reviewed; applicable unresolved findings documented.
+- [x] Dependency licenses reviewed for distribution compatibility; include required notices.
+- [x] After checks, SQLite rebuilt for Electron and package build succeeds.
+- [x] Artifact contents include local renderer assets and a usable companion CLI without developer-machine paths.
+- [x] Release verification script passes: `node scripts/validate/release-files.mjs`.
 
 ## Real five-session exercise
 
@@ -36,19 +36,19 @@ Run `pnpm install --frozen-lockfile`, then `pnpm check` with a Node-compatible S
 
 ## Desktop and privacy
 
-- [ ] Offline Demo Mode shows five clearly simulated fish without Claude installed.
+- [x] Offline Demo Mode shows five clearly simulated fish without Claude installed.
 - [ ] Inspector shows safe metadata only; Capture Mode image contains no project/session-private information.
 - [ ] Mini Tank, Always on Top, tray, window resize, HiDPI, and restart recovery work.
 - [ ] Keyboard navigation, focus visibility, screen-reader labels and OS reduced motion work; attention/errors use more than color.
-- [ ] GPU/rendering failure leaves a usable static session list.
+- [x] GPU/rendering failure leaves a usable static session list.
 - [ ] Sound/notifications are off by default; enabled notifications are limited to observed attention/completion and rate limited.
-- [ ] Clear Local Data removes aquarium history while preserving unrelated provider configuration.
+- [x] Clear Local Data removes aquarium history while preserving unrelated provider configuration.
 - [ ] Normal operation remains usable with network access disabled and performs no unexpected remote calls.
 
 ## Clean-machine packaging
 
 - [ ] Windows x64 installer installs and launches on a clean account without development tools; bundled CLI hook path resolves correctly.
-- [ ] Windows portable artifact launches, connects, and handles paths containing spaces.
+- [x] Windows portable artifact launches, connects, and handles paths containing spaces.
 - [ ] macOS builds tested on each advertised architecture; unsigned/notarization limitations documented.
 - [ ] Linux advertised artifact installs/launches with documented system requirements.
 - [ ] Upgrade/uninstall behavior preserves or removes local data according to explicit user choice.
