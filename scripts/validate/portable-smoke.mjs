@@ -12,7 +12,7 @@ async function launch(){
  await rm(resolve(directory,'DevToolsActivePort'),{force:true});
  child=spawn(resolve('release/Agent Aquarium 0.1.0.exe'),['--remote-debugging-port=0'],{windowsHide:true,stdio:'ignore',env:environment});
  let port;for(let i=0;i<150;i++){try{port=Number((await readFile(resolve(directory,'DevToolsActivePort'),'utf8')).split('\n')[0]);if(port)break;}catch{}await new Promise(r=>setTimeout(r,200));}assert.ok(port,'Portable debug endpoint appears');
- browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`);const page=browser.contexts()[0].pages()[0];await page.waitForFunction(()=>!!window.aquarium);return page;
+ browser=await chromium.connectOverCDP(`http://127.0.0.1:${port}`);const context=browser.contexts()[0];const page=context.pages()[0]??await context.waitForEvent('page',{timeout:30000});await page.waitForFunction(()=>!!window.aquarium);return page;
 }
 async function close(){
  if(browser){await browser.close();browser=undefined;}
