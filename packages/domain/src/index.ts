@@ -1,7 +1,7 @@
 import { defaultPreferences, eventSchema, type AgentState, type AquariumEventV1, type AquariumSnapshot, type Preferences, type Provider } from '@aquarium/protocol';
 export type { AgentState, AquariumSnapshot } from '@aquarium/protocol';
 
-export interface DomainState { agents: Record<string, AgentState>; seenEventIds: string[]; sequence: number }
+export interface DomainState { agents: Record<string, AgentState>; seenEventIds: string[]; sequence: number; recovering?:Record<string,number> }
 // Durable event-id deduplication remains the receiver/database's responsibility.
 export const MAX_RECENT_EVENT_IDS = 10_000;
 export const MAX_ACTIVE_TOOLS = 256;
@@ -33,6 +33,7 @@ export function reduceEvent(state: DomainState, input: AquariumEventV1): DomainS
   const previous = state.agents[key];
   const agent: AgentState = previous ? {...previous,activeTools:{...previous.activeTools}} : createAgent(event);
   const next: DomainState = {agents:{...state.agents},seenEventIds:[...state.seenEventIds.slice(-(MAX_RECENT_EVENT_IDS-1)),event.eventId],sequence:state.sequence+1};
+  if(state.recovering)next.recovering={...state.recovering};
   // Even ignored late deliveries receive a sequence, so replay and persistence agree.
   next.agents[key] = agent;
   const parent = next.agents[actorKey(event.provider,event.sessionId)];
@@ -45,6 +46,9 @@ export function reduceEvent(state: DomainState, input: AquariumEventV1): DomainS
   const newer = event.occurredAt >= agent.statusChangedAt;
   const explicitResume = event.kind === 'session_started' && event.occurredAt > agent.statusChangedAt;
   if (agent.status === 'ended' && !explicitResume) return next;
+  // Recovery is an observation overlay, never a destructive lifecycle transition.
+  // A delayed delivery older than persisted activity cannot prove current liveness.
+  if(next.recovering && event.occurredAt >= (next.recovering[key] ?? Infinity))delete next.recovering[key];
   agent.lastActivityAt = Math.max(agent.lastActivityAt,event.occurredAt);
   if (event.projectLabel && newer) agent.projectLabel = event.projectLabel;
   if (event.kind === 'context_updated') {
@@ -55,7 +59,21 @@ export function reduceEvent(state: DomainState, input: AquariumEventV1): DomainS
     }
     return next;
   }
-  if (event.kind === 'heartbeat' || !newer) return next;
+  if (event.kind === 'heartbeat') return next;
+  // Pair known completions even when another concurrent tool or attention event
+  // has a newer lifecycle watermark. Never let this undo waiting or terminal state.
+  if (!newer && (event.kind === 'tool_succeeded' || event.kind === 'tool_failed')) {
+    if(['turn_done','error','ended'].includes(agent.status))return next;
+    const ids=Object.keys(agent.activeTools);
+    const toolId=event.toolUseId ?? (ids.length === 1 && ids[0]?.startsWith('unpaired:') ? ids[0]:undefined);
+    const tool=toolId && Object.hasOwn(agent.activeTools,toolId) ? agent.activeTools[toolId]:undefined;
+    if(!toolId || !tool || event.occurredAt < tool.startedAt)return next;
+    delete agent.activeTools[toolId];
+    if(event.kind==='tool_failed')agent.lastToolFailedAt=Math.max(agent.lastToolFailedAt??0,event.occurredAt);
+    if(agent.status==='using_tool' && !Object.keys(agent.activeTools).length)agent.status='working';
+    return next;
+  }
+  if (!newer) return next;
   if (previous && event.occurredAt === agent.statusChangedAt && ['turn_done','error'].includes(agent.status) && !['turn_completed','turn_failed','session_ended','subagent_stopped'].includes(event.kind)) return next;
   const setStatus = (status: AgentState['status']) => {agent.status=status;agent.statusChangedAt=event.occurredAt;delete agent.attentionReason;};
   const endedTurn = agent.status === 'turn_done' || agent.status === 'error';
@@ -112,7 +130,7 @@ export function reduceEvent(state: DomainState, input: AquariumEventV1): DomainS
 export function projectSnapshot(state: DomainState, now: number, preferences: Preferences = defaultPreferences, demoMode = false): AquariumSnapshot {
   const agents = Object.values(state.agents)
     .filter(agent => agent.status !== 'ended' || now - (agent.endedAt ?? agent.lastActivityAt) < preferences.lingerMs)
-    .map(agent => ({...agent,activeTools:{...agent.activeTools},status:agent.status !== 'ended' && now-agent.lastActivityAt >= preferences.staleAfterMs ? 'stale' as const:agent.status}))
+    .map(agent => ({...agent,activeTools:{...agent.activeTools},status:agent.status !== 'ended' && (state.recovering?.[agent.key] !== undefined || now-agent.lastActivityAt >= preferences.staleAfterMs) ? 'stale' as const:agent.status}))
     .sort((a,b)=>a.startedAt-b.startedAt || a.key.localeCompare(b.key));
   return {version:1,sequence:state.sequence,generatedAt:now,agents,preferences:{...preferences},demoMode};
 }

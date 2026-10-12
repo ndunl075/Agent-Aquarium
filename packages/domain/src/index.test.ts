@@ -95,4 +95,32 @@ describe('deterministic truthful lifecycle',()=>{
   it('never infers simulated activity from untrusted session identifiers',()=>{
     expect(first(run(event('turn_started',1000,{sessionId:'demo:spoof'}))).simulated).toBe(false);
   });
+  it('pairs delayed completion between concurrent starts without leaving a ghost tool',()=>{
+    let state=run(event('tool_started',1000,{toolUseId:'a'}),event('tool_started',1200,{toolUseId:'b'}),event('tool_succeeded',1100,{toolUseId:'a'}));
+    expect(Object.keys(first(state).activeTools)).toEqual(['b']);
+    expect(first(state).status).toBe('using_tool');
+    state=reduceEvent(state,event('tool_succeeded',1300,{toolUseId:'b'}));
+    expect(first(state).status).toBe('working');expect(first(state).activeTools).toEqual({});
+  });
+  it('pairs old completion while preserving newer attention and terminal state',()=>{
+    const waiting=run(event('tool_started',1000,{toolUseId:'a'}),event('attention_required',1200,{attentionReason:'permission'}),event('tool_failed',1100,{toolUseId:'a'}));
+    expect(first(waiting).status).toBe('waiting');expect(first(waiting).attentionReason).toBe('permission');
+    expect(first(waiting).activeTools).toEqual({});expect(first(waiting).lastToolFailedAt).toBe(1100);
+    const done=reduceEvent(waiting,event('turn_completed',1300));
+    expect(first(reduceEvent(done,event('tool_succeeded',1150,{toolUseId:'a'}))).status).toBe('turn_done');
+  });
+  it('rejects a completion timestamp before its own observed tool start',()=>{
+    const state=run(event('tool_started',1200,{toolUseId:'a'}),event('tool_succeeded',1100,{toolUseId:'a'}));
+    expect(Object.keys(first(state).activeTools)).toEqual(['a']);
+  });
+  it('projects recovery stale until forward observation, preserving underlying lifecycle',()=>{
+    const live=run(event('attention_required',1000,{attentionReason:'permission'}));
+    const key=first(live).key;
+    const recovered={...live,recovering:{[key]:1000}};
+    expect(projectSnapshot(recovered,1001).agents[0]?.status).toBe('stale');
+    expect(first(recovered).status).toBe('waiting');
+    const late=reduceEvent(recovered,event('heartbeat',999));expect(projectSnapshot(late,1002).agents[0]?.status).toBe('stale');
+    const fresh=reduceEvent(recovered,event('heartbeat',1003));expect(projectSnapshot(fresh,1004).agents[0]?.status).toBe('waiting');
+    expect(fresh.recovering).toEqual({});expect(recovered.recovering).toEqual({[key]:1000});
+  });
 });
