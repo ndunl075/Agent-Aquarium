@@ -39,6 +39,13 @@ export function fishName(agent: AgentState, masked = false): string {
   return agent.projectLabel || `${identity(agent).palette.name} fish`;
 }
 
+/** A transient presentation of an observed failed tool; never a failed turn. */
+export function toolFailureIntensity(agent: AgentState, now = Date.now()): number {
+  if (agent.lastToolFailedAt == null || (agent.status !== 'working' && agent.status !== 'using_tool')) return 0;
+  const age = now - agent.lastToolFailedAt;
+  return age >= 0 && age < 3000 ? 1 - age / 3000 : 0;
+}
+
 /** Presentation only: status is supplied by the domain; movement never invents state. */
 export function positionAt(agent: AgentState, seconds: number, slot: number, count: number, reduced: boolean, now = Date.now()) {
   const { seed } = identity(agent);
@@ -75,6 +82,10 @@ export function positionAt(agent: AgentState, seconds: number, slot: number, cou
       if (agent.lastToolCategory === 'delegate') x += Math.sin(t * 0.8 + phase) * 0.015 * motionScale;
     }
     if (agent.status === 'error') angle += Math.sin(t * 2.2) * 0.07;
+    const failureIntensity = toolFailureIntensity(agent, now);
+    if (!reduced && failureIntensity > 0) {
+      angle += Math.sin((now - agent.lastToolFailedAt!) / 1000 * 9) * 0.1 * failureIntensity;
+    }
     if (agent.status === 'turn_done') {
       const age = (now - agent.statusChangedAt) / 1000;
       if (age < 3 && age >= 0 && !reduced) { y += Math.sin(age * Math.PI * 2 / 3) * 0.025 * motionScale; angle += Math.sin(age * Math.PI * 2 / 3) * 0.23; }

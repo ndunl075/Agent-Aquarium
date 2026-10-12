@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AgentState } from '@aquarium/protocol';
-import { fishName, identity, positionAt } from './model';
+import { fishName, identity, positionAt, toolFailureIntensity } from './model';
 
 const agent: AgentState = {
   key: 'claude-code:session-one:main', sessionKey: 'claude-code:session-one',
@@ -40,6 +40,28 @@ describe('aquarium presentation invariants', () => {
       for (let i = 0; i < positions.length; i++) for (let j = i + 1; j < positions.length; j++) {
         expect(Math.hypot(positions[i]!.x - positions[j]!.x, positions[i]!.y - positions[j]!.y)).toBeGreaterThan(0.09);
       }
+    }
+  });
+  it('briefly distinguishes a failed tool while preserving the working session', () => {
+    const failedTool = { ...agent, lastToolFailedAt: 10000 };
+    const original = structuredClone(failedTool);
+    expect(toolFailureIntensity(failedTool, 10000)).toBe(1);
+    expect(toolFailureIntensity(failedTool, 11500)).toBe(0.5);
+    expect(toolFailureIntensity(failedTool, 13000)).toBe(0);
+    expect(toolFailureIntensity(failedTool, 9999)).toBe(0);
+    expect(positionAt(failedTool, 12, 0, 5, false, 10250).angle).not.toBe(positionAt(agent, 12, 0, 5, false, 10250).angle);
+    expect(positionAt(failedTool, 12, 0, 5, false, 13000)).toEqual(positionAt(agent, 12, 0, 5, false, 13000));
+    expect(failedTool).toEqual(original);
+    expect(failedTool.status).toBe('working');
+  });
+  it('retains the tool failure indicator without extra motion under reduced motion', () => {
+    const failedTool = { ...agent, status: 'using_tool' as const, lastToolCategory: 'read' as const, lastToolFailedAt: 10000 };
+    expect(toolFailureIntensity(failedTool, 10250)).toBeGreaterThan(0);
+    expect(positionAt(failedTool, 12, 0, 5, true, 10250)).toEqual(positionAt({ ...failedTool, lastToolFailedAt: undefined }, 12, 0, 5, true, 10250));
+  });
+  it('never lets the transient tool cue replace attention or terminal states', () => {
+    for (const status of ['waiting', 'turn_done', 'ended', 'error', 'stale'] as const) {
+      expect(toolFailureIntensity({ ...agent, status, lastToolFailedAt: 10000 }, 10250)).toBe(0);
     }
   });
 });
