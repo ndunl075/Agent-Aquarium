@@ -1,0 +1,52 @@
+name: Package desktop
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+          - os: macos-latest
+            target: mac
+          - os: ubuntu-latest
+            target: linux
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Ensure SQLite targets Node for tests
+        run: pnpm rebuild better-sqlite3
+      - run: pnpm check
+      - run: node scripts/validate/release-files.mjs
+      - name: Rebuild SQLite for the Electron ABI after Node tests
+        run: pnpm exec electron-rebuild -f -w better-sqlite3
+      - name: Build unsigned distribution
+        run: pnpm package --${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-aquarium-${{ matrix.target }}-${{ github.sha }}
+          path: |
+            release/*.exe
+            release/*.zip
+            release/*.dmg
+            release/*.AppImage
+            release/*.deb
+            release/*.yml
+            release/*.blockmap
+          if-no-files-found: error
+          retention-days: 14
