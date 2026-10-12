@@ -40,38 +40,44 @@ export function fishName(agent: AgentState, masked = false): string {
 }
 
 /** Presentation only: status is supplied by the domain; movement never invents state. */
-export function positionAt(agent: AgentState, seconds: number, slot: number, count: number, reduced: boolean) {
+export function positionAt(agent: AgentState, seconds: number, slot: number, count: number, reduced: boolean, now = Date.now()) {
   const { seed } = identity(agent);
   const phase = (seed % 628) / 100;
   const t = reduced ? 0 : seconds;
-  const lanes = Math.min(count, 8);
-  const row = slot % lanes;
-  let x = 0.22 + ((slot * 0.263 + (seed % 100) / 500) % 0.57);
-  let y = 0.22 + (row / Math.max(lanes - 1, 1)) * 0.48;
+  // Every actor owns a cell. Tool/attention motion stays within that cell, so
+  // simultaneous writers or waiters cannot collapse into one location.
+  const smallTank = [[0.25, 0.26], [0.51, 0.47], [0.78, 0.26], [0.26, 0.69], [0.77, 0.69]];
+  const columns = count <= 12 ? 4 : 6;
+  const rows = Math.ceil(count / columns);
+  const cell = count <= 5 ? smallTank[slot % 5]!
+    : [0.13 + (slot % columns) * (0.74 / (columns - 1)), 0.24 + Math.floor(slot / columns) * (0.49 / Math.max(rows - 1, 1))];
+  let x = cell[0]!;
+  let y = cell[1]!;
+  const motionScale = count > 12 ? 0.3 : count > 5 ? 0.55 : 1;
   let angle = 0;
   let direction = Math.cos(t * 0.17 + phase) >= 0 ? 1 : -1;
   const wave = Math.sin(t * 0.4 + phase);
   if (agent.status === 'waiting') {
-    x = 0.72 + (slot % 2) * 0.06;
-    y += wave * 0.008;
+    x += 0.012 * motionScale;
+    y += wave * 0.005 * motionScale;
     direction = 1;
   } else if (agent.status === 'ended') {
-    x = Math.min(1.15, x + Math.max(0, Date.now() - (agent.endedAt ?? agent.statusChangedAt)) / 9000);
+    x = Math.min(1.15, x + Math.max(0, now - (agent.endedAt ?? agent.statusChangedAt)) / 9000);
   } else {
     const speed = agent.lastToolCategory === 'shell' && agent.status === 'using_tool' ? 1.8 : 1;
-    x += Math.sin(t * 0.17 * speed + phase) * 0.105;
-    y += wave * (agent.status === 'stale' ? 0.005 : 0.023);
+    x += Math.sin(t * 0.17 * speed + phase) * 0.038 * motionScale;
+    y += wave * (agent.status === 'stale' ? 0.003 : 0.012) * motionScale;
     angle = Math.cos(t * 0.4 + phase) * 0.04;
     if (agent.status === 'using_tool') {
       if (agent.lastToolCategory === 'read' || agent.lastToolCategory === 'search') angle += 0.12 * Math.sin(t + phase);
-      if (agent.lastToolCategory === 'write') { y = 0.67 + wave * 0.012; x += Math.sin(t * 1.8) * 0.01; }
-      if (agent.lastToolCategory === 'test') y += Math.sin(t * 1.3 + phase) * 0.035;
-      if (agent.lastToolCategory === 'delegate') x += Math.sin(t * 0.8 + phase) * 0.025;
+      if (agent.lastToolCategory === 'write') { y += 0.025 * motionScale; x += Math.sin(t * 1.8) * 0.006 * motionScale; }
+      if (agent.lastToolCategory === 'test') y += Math.sin(t * 1.3 + phase) * 0.018 * motionScale;
+      if (agent.lastToolCategory === 'delegate') x += Math.sin(t * 0.8 + phase) * 0.015 * motionScale;
     }
     if (agent.status === 'error') angle += Math.sin(t * 2.2) * 0.07;
     if (agent.status === 'turn_done') {
-      const age = (Date.now() - agent.statusChangedAt) / 1000;
-      if (age < 3 && age >= 0 && !reduced) { y += Math.sin(age * Math.PI * 2 / 3) * 0.045; angle += Math.sin(age * Math.PI * 2 / 3) * 0.23; }
+      const age = (now - agent.statusChangedAt) / 1000;
+      if (age < 3 && age >= 0 && !reduced) { y += Math.sin(age * Math.PI * 2 / 3) * 0.025 * motionScale; angle += Math.sin(age * Math.PI * 2 / 3) * 0.23; }
     }
   }
   return { x, y, angle, direction, phase };
