@@ -180,7 +180,7 @@ export function App() {
         <div className="tank-coordinate" aria-hidden="true">01 <span>/</span> DEEP WATER<br /><small>EST. LOCALLY</small></div>
       </div>
 
-      <AquariumScene agents={agents} selected={selected} masked={masked} reduced={preferences.reducedMotion || systemReduced} batterySaver={preferences.batterySaver} onSelect={key => { if (!masked) { setPanel(null); setSelected(key); } }} />
+      <AquariumScene agents={agents} selected={selected} masked={masked} reduced={preferences.reducedMotion || systemReduced} batterySaver={preferences.batterySaver} mini={mini} onSelect={key => { if (!masked) { setPanel(null); setSelected(key); } }} />
 
       {snapshot && !agents.length && <div className="welcome-card"><span className="welcome-orbit"><Icon name="fish" size={33} /></span><span className="eyebrow">A HOME FOR YOUR AGENTS</span><h3>Good things take a little time.</h3><p>Connect Claude Code and watch each session become a fish. Just your work, a little more alive.</p><div><button className="primary-button" onClick={openConnect}>Connect Claude Code <Icon name="arrow" size={16} /></button><button className="text-button" onClick={toggleDemo} disabled={busy}><Icon name="play" size={14} /> Watch the demo</button></div><small>No account. No cloud. Just a very nice tank.</small></div>}
       {!snapshot && <div className="welcome-card" role="status"><span className="welcome-orbit"><Icon name="fish" size={33} /></span><h3>Settling the water…</h3><p>Connecting to your local aquarium.</p></div>}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Application, Container, Graphics, Text, type Ticker } from 'pixi.js';
 // This Pixi compatibility module replaces dynamic code generation with CSP-safe functions.
 import 'pixi.js/unsafe-eval';
@@ -11,16 +11,23 @@ interface Props {
   masked: boolean;
   reduced: boolean;
   batterySaver: boolean;
+  mini: boolean;
   onSelect(key: string): void;
 }
 interface FishActor {
-  root: Container; body: Container; tail: Graphics; fin: Graphics; label: Text;
+  root: Container; annotations: Container; body: Container; tail: Graphics; fin: Graphics; label: Text;
   badge: Text; halo: Graphics; shadow: Graphics; lastLabel: string; lastStatus: string;
+}
+
+function canvasLabel(agent: AgentState, masked: boolean) {
+  const name = fishName(agent, masked);
+  return `${name.length > 21 ? `${name.slice(0, 20)}…` : name}${agent.simulated ? ' · DEMO' : ''}`;
 }
 
 function makeFish(agent: AgentState): FishActor {
   const { palette: p, species } = identity(agent);
   const root = new Container();
+  const annotations = new Container();
   const shadow = new Graphics().ellipse(0, 52, 42, 6).fill({ color: 0x02141c, alpha: 0.13 });
   const halo = new Graphics().ellipse(0, 0, 64, 46).stroke({ color: p.light, alpha: 0.6, width: 1 });
   halo.visible = false;
@@ -66,9 +73,10 @@ function makeFish(agent: AgentState): FishActor {
   label.anchor.set(0.5); label.y = 47;
   const badge = new Text({ text: '', style: { fontFamily: 'Segoe UI, sans-serif', fontSize: 14, fill: 0xffe2ad, fontWeight: '600' } });
   badge.anchor.set(0.5); badge.y = -49;
-  root.addChild(shadow, halo, body, label, badge);
+  root.addChild(shadow, halo, body);
+  annotations.addChild(label, badge);
   root.eventMode = 'static'; root.cursor = 'pointer';
-  return { root, body, tail, fin, label, badge, halo, shadow, lastLabel: '', lastStatus: '' };
+  return { root, annotations, body, tail, fin, label, badge, halo, shadow, lastLabel: '', lastStatus: '' };
 }
 
 function makePlant(x: number, height: number, color: number, variant: number): Container {
@@ -101,7 +109,9 @@ function makeCoral(x: number, color: number): Container {
 export function AquariumScene(props: Props) {
   const host = useRef<HTMLDivElement>(null);
   const latest = useRef(props); latest.current = props;
+  const flushPrivacy = useRef<(() => void) | null>(null);
   const [failed, setFailed] = useState(false);
+  useLayoutEffect(() => { flushPrivacy.current?.(); }, [props.masked]);
 
   useEffect(() => {
     const element = host.current!;
@@ -133,7 +143,18 @@ export function AquariumScene(props: Props) {
         const motes = new Container();
         const fishLayer = new Container();
         const frontPlants = new Container();
-        app.stage.addChild(scenery, backPlants, seaFloor, motes, fishLayer, frontPlants);
+        const annotationLayer = new Container();
+        app.stage.addChild(scenery, backPlants, seaFloor, motes, fishLayer, frontPlants, annotationLayer);
+        // Capture must not wait for a battery-saver/hidden-window ticker frame.
+        flushPrivacy.current = () => {
+          for (const agent of latest.current.agents) {
+            const actor = actors.get(agent.key);
+            if (!actor) continue;
+            const label = canvasLabel(agent, latest.current.masked);
+            actor.label.text = label; actor.lastLabel = label;
+          }
+          app.render();
+        };
         const rocks = new Graphics(); scenery.addChild(rocks);
         for (let i = 0; i < 16; i++) {
           const foreground = i > 11;
@@ -191,30 +212,37 @@ export function AquariumScene(props: Props) {
           if (lastAgents !== current.agents) {
             lastAgents = current.agents;
             const keys = new Set(current.agents.map(a => a.key));
-            for (const [key, actor] of actors) if (!keys.has(key)) { actor.root.destroy({ children: true }); actors.delete(key); }
+            for (const [key, actor] of actors) if (!keys.has(key)) { actor.root.destroy({ children: true }); actor.annotations.destroy({ children: true }); actors.delete(key); }
             for (const agent of current.agents) if (!actors.has(agent.key)) {
               const actor = makeFish(agent);
               actor.root.on('pointertap', () => latest.current.onSelect(agent.key));
               actors.set(agent.key, actor); fishLayer.addChild(actor.root);
+              annotationLayer.addChild(actor.annotations);
             }
           }
           for (const [i, agent] of current.agents.entries()) {
             const actor = actors.get(agent.key)!;
             const pos = positionAt(agent, elapsed, i, current.agents.length, current.reduced);
-            const scale = (agent.parentKey ? 0.64 : 1) * Math.min(1.18, Math.max(0.5, w / 1050)) * (current.agents.length > 12 ? 0.75 : 1);
-            const topInset = h < 350 ? 65 : 165;
+            const densityScale = current.agents.length > 12 ? 0.43 : current.agents.length > 5 ? 0.67 : 1;
+            const scale = (agent.parentKey ? 0.7 : 1) * (current.mini ? Math.max(0.24, 0.43 * Math.sqrt(5 / Math.max(current.agents.length, 5))) : Math.min(1.08, Math.max(0.55, w / 1050)) * densityScale * Math.min(1, h / 430));
+            const topInset = current.mini ? 62 : h < 350 ? 125 : 155;
             const swimHeight = Math.max(80, h - topInset - 75);
             actor.root.position.set(w * pos.x, topInset + ((pos.y - 0.2) / 0.55) * swimHeight);
+            actor.annotations.position.copyFrom(actor.root.position);
             actor.root.scale.set(scale);
+            actor.annotations.scale.set(scale);
             actor.body.scale.x = pos.direction;
             actor.body.rotation = current.reduced ? 0 : pos.angle;
             actor.tail.scale.y = current.reduced ? 1 : 0.86 + Math.sin(elapsed * 4 + pos.phase) * 0.14;
             actor.fin.rotation = current.reduced ? 0 : Math.sin(elapsed * 3 + pos.phase) * 0.12;
             actor.root.alpha = agent.status === 'stale' ? 0.55 : agent.status === 'ended' ? 0.45 : 1;
+            actor.annotations.alpha = actor.root.alpha;
+            actor.label.visible = !current.mini && (current.agents.length <= 12 || current.selected === agent.key);
             actor.halo.visible = current.selected === agent.key;
-            const label = `${fishName(agent, current.masked)}${agent.simulated ? ' · DEMO' : ''}`;
+            const label = canvasLabel(agent, current.masked);
             if (actor.lastLabel !== label) { actor.label.text = label; actor.lastLabel = label; }
-            const indicator = agent.status === 'waiting' ? '!  NEEDS YOU' : agent.status === 'error' ? '×  ERROR'
+            const compact = current.mini || current.agents.length > 12;
+            const indicator = compact ? (agent.status === 'waiting' ? '!' : agent.status === 'error' ? '×' : agent.status === 'turn_done' ? '✓' : agent.status === 'stale' ? '?' : '') : agent.status === 'waiting' ? '!  NEEDS YOU' : agent.status === 'error' ? '×  ERROR'
               : agent.status === 'turn_done' ? '✓  DONE' : agent.status === 'stale' ? '?  UNKNOWN'
               : agent.status === 'starting' ? '↗  ARRIVING' : agent.status === 'using_tool' ? activity(agent).toUpperCase() : '';
             if (actor.lastStatus !== indicator) { actor.badge.text = indicator; actor.lastStatus = indicator; }
@@ -234,6 +262,7 @@ export function AquariumScene(props: Props) {
     })();
     return () => {
       disposed = true;
+      flushPrivacy.current = null;
       resizeObserver?.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       if (initialized) {

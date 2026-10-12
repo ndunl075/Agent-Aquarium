@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <title>Agent Aquarium — original fish app icon</title>
+  <defs>
+    <linearGradient id="water" x1="40" y1="15" x2="200" y2="250" gradientUnits="userSpaceOnUse"><stop stop-color="#285957"/><stop offset="1" stop-color="#0B2732"/></linearGradient>
+    <linearGradient id="scales" x1="98" y1="91" x2="158" y2="175" gradientUnits="userSpaceOnUse"><stop stop-color="#FFE0A8"/><stop offset="1" stop-color="#EC9E6B"/></linearGradient>
+  </defs>
+  <rect x="9" y="9" width="238" height="238" rx="57" fill="url(#water)"/>
+  <rect x="10" y="10" width="236" height="236" rx="56" stroke="#81AF95" stroke-opacity=".38" stroke-width="2"/>
+  <path d="M26 191C74 173 108 211 155 194C193 180 209 188 237 174V194C198 210 178 202 150 215C101 231 75 192 26 211Z" fill="#668F73" fill-opacity=".22"/>
+  <circle cx="199" cy="59" r="10" stroke="#B9D6BA" stroke-opacity=".55" stroke-width="3"/>
+  <circle cx="177" cy="32" r="4" fill="#B9D6BA" fill-opacity=".5"/>
+  <path d="M92 128C72 116 55 90 43 95C40 113 40 145 44 160C60 164 76 141 92 135Z" fill="#CE8664"/>
+  <path d="M50 104L85 129L49 152M47 127L83 131" stroke="#FFE1AD" stroke-opacity=".55" stroke-width="3" stroke-linecap="round"/>
+  <path d="M100 97C113 62 147 68 166 99Z" fill="#C98862"/>
+  <path d="M113 168C132 196 153 186 166 160Z" fill="#CC8863"/>
+  <ellipse cx="140" cy="132" rx="65" ry="45" fill="url(#scales)"/>
+  <path d="M103 99C91 115 92 145 106 168M129 90C117 114 117 149 130 175M156 91C146 110 146 136 152 154" stroke="#C77E5E" stroke-opacity=".75" stroke-width="10"/>
+  <path d="M85 145C112 169 157 169 190 145C172 181 108 190 85 145Z" fill="#FFE2B5" fill-opacity=".52"/>
+  <ellipse cx="177" cy="120" rx="13" ry="15" fill="#FFF4D8"/>
+  <ellipse cx="181" cy="120" rx="7" ry="9" fill="#163B40"/>
+  <circle cx="182" cy="116" r="2.5" fill="white"/>
+  <path d="M132 137C118 133 109 143 113 153C121 164 133 154 142 142Z" fill="#C78161"/>
+  <path d="M134 142L117 147M132 145L120 153" stroke="#FFE2B5" stroke-width="2" stroke-linecap="round"/>
+  <path d="M187 143Q195 148 202 140" stroke="#A96851" stroke-width="3" stroke-linecap="round"/>
+</svg>
