@@ -1,8 +1,8 @@
-import { randomUUID } from 'node:crypto';
-import { aquariumEventSchema, type AquariumEventV1 } from '@aquarium/protocol';
+import { randomUUID, createHash } from 'node:crypto';
+import { aquariumEventSchema, type AquariumEventV1, type ProviderCapabilities } from '@aquarium/protocol';
 
 export const claudeCapabilities = { sessions: true, toolLifecycle: true, attention: true, subagents: true, contextPercentage: 'optional', guaranteedSessionEnd: false } as const;
-export interface ProviderAdapter<T = unknown> { readonly id: AquariumEventV1['provider']; readonly capabilities: typeof claudeCapabilities; normalize(payload: T): AquariumEventV1 | null }
+export interface ProviderAdapter<T = unknown> { readonly id: AquariumEventV1['provider']; readonly capabilities: ProviderCapabilities; normalize(payload: T): AquariumEventV1 | null }
 const kinds: Record<string, AquariumEventV1['kind']> = {
   SessionStart: 'session_started', UserPromptSubmit: 'turn_started', PreToolUse: 'tool_started', PostToolUse: 'tool_succeeded', PostToolUseFailure: 'tool_failed', PermissionRequest: 'attention_required', Notification: 'attention_required', SubagentStart: 'subagent_started', SubagentStop: 'subagent_stopped', Stop: 'turn_completed', StopFailure: 'turn_failed', SessionEnd: 'session_ended',
 };
@@ -39,3 +39,15 @@ export function normalizeClaudeStatus(payload: unknown): AquariumEventV1 | null 
   return result.success ? result.data : null;
 }
 export const claudeAdapter: ProviderAdapter = { id: 'claude-code', capabilities: claudeCapabilities, normalize: normalizeClaudeEvent };
+
+/** Codex notify exposes turn completion only. Session identity is real; lifecycle is partial. */
+export const codexCapabilities: ProviderCapabilities = {sessions:true,toolLifecycle:false,attention:false,subagents:false,contextPercentage:'none',guaranteedSessionEnd:false};
+export function normalizeCodexNotification(payload:unknown):AquariumEventV1|null {
+  const p=object(payload);if(!p || p.type!=='agent-turn-complete')return null;
+  const sessionId=id(p['thread-id']);if(!sessionId)return null;
+  const turnId=id(p['turn-id']);
+  const event:AquariumEventV1={version:1,eventId:turnId?`codex-${createHash('sha256').update(JSON.stringify([sessionId,turnId])).digest('hex')}`:randomUUID(),provider:'codex',sessionId,actorId:'main',kind:'turn_completed',occurredAt:Date.now()};
+  const project=safeProjectLabel(p.cwd);if(project)event.projectLabel=project;
+  const result=aquariumEventSchema.safeParse(event);return result.success?result.data:null;
+}
+export const codexAdapter:ProviderAdapter={id:'codex',capabilities:codexCapabilities,normalize:normalizeCodexNotification};
