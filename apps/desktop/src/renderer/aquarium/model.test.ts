@@ -34,4 +34,12 @@ describe('aquarium presentation invariants', () => {
     expect(positionAt({ ...agent, status: 'ended', endedAt: 3000 }, 15, 0, 1, false, 20000).x).toBe(1.15);
     expect(positionAt({ ...agent, status: 'turn_done' }, 15, 0, 1, false, 20000).x).toBeLessThan(1);
   });
+  it('keeps simultaneous waiters and writers in separate cells', () => {
+    for (const count of [5, 30]) for (const status of ['waiting', 'using_tool'] as const) {
+      const positions = Array.from({ length: count }, (_, slot) => positionAt({ ...agent, key: `actor-${slot}`, status, lastToolCategory: 'write' }, 32, slot, count, false, 44000));
+      for (let i = 0; i < positions.length; i++) for (let j = i + 1; j < positions.length; j++) {
+        expect(Math.hypot(positions[i]!.x - positions[j]!.x, positions[i]!.y - positions[j]!.y)).toBeGreaterThan(0.09);
+      }
+    }
+  });
 });
