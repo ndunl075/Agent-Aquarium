@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AquariumEventV1 } from '@aquarium/protocol';
-import { createInitialState, reduceEvent, projectSnapshot, actorKey, stableHash } from './index';
+import { createInitialState, reduceEvent, projectSnapshot, actorKey, stableHash, MAX_RECENT_EVENT_IDS, MAX_ACTIVE_TOOLS } from './index';
 const event=(kind:AquariumEventV1['kind'],time=1000,extra:Partial<AquariumEventV1>={}):AquariumEventV1=>({version:1,eventId:`${kind}:${time}`,provider:'claude-code',sessionId:'s',actorId:'main',kind,occurredAt:time,...extra});
 const run=(...events:AquariumEventV1[])=>events.reduce(reduceEvent,createInitialState());
 const first=(state:ReturnType<typeof createInitialState>)=>Object.values(state.agents)[0]!;
@@ -74,5 +74,25 @@ describe('deterministic truthful lifecycle',()=>{
     const state=run(event('tool_started',1000,{toolUseId:'__proto__'}));
     expect(Object.keys(first(state).activeTools)).toEqual(['__proto__']);
     expect(first(run(event('tool_started',1000,{toolUseId:'__proto__'}),event('tool_succeeded',1100,{toolUseId:'__proto__'}))).status).toBe('working');
+  });
+  it('bounds the recent delivery cache while retaining latest duplicate detection',()=>{
+    const state={...createInitialState(),seenEventIds:Array.from({length:MAX_RECENT_EVENT_IDS},(_,i)=>`old:${i}`)};
+    const incoming=event('turn_started');const next=reduceEvent(state,incoming);
+    expect(next.seenEventIds).toHaveLength(MAX_RECENT_EVENT_IDS);
+    expect(next.seenEventIds[0]).toBe('old:1');
+    expect(reduceEvent(next,incoming)).toBe(next);
+  });
+  it('bounds never-finishing tool starts and ignores completion of evicted IDs',()=>{
+    const state=run(event('turn_started'));
+    first(state).activeTools=Object.fromEntries(Array.from({length:MAX_ACTIVE_TOOLS},(_,i)=>[`t:${i}`,{id:`t:${i}`,category:'other' as const,startedAt:i}]));
+    const next=reduceEvent(state,event('tool_started',2000,{toolUseId:'new'}));
+    expect(Object.keys(first(next).activeTools)).toHaveLength(MAX_ACTIVE_TOOLS);
+    expect(Object.hasOwn(first(next).activeTools,'t:0')).toBe(false);
+    const finished=reduceEvent(next,event('tool_succeeded',2100,{toolUseId:'t:0'}));
+    expect(Object.keys(first(finished).activeTools)).toHaveLength(MAX_ACTIVE_TOOLS);
+    expect(first(finished).status).toBe('using_tool');
+  });
+  it('never infers simulated activity from untrusted session identifiers',()=>{
+    expect(first(run(event('turn_started',1000,{sessionId:'demo:spoof'}))).simulated).toBe(false);
   });
 });

@@ -2,6 +2,9 @@ import { defaultPreferences, eventSchema, type AgentState, type AquariumEventV1,
 export type { AgentState, AquariumSnapshot } from '@aquarium/protocol';
 
 export interface DomainState { agents: Record<string, AgentState>; seenEventIds: string[]; sequence: number }
+// Durable event-id deduplication remains the receiver/database's responsibility.
+export const MAX_RECENT_EVENT_IDS = 10_000;
+export const MAX_ACTIVE_TOOLS = 256;
 export const createInitialState = (): DomainState => ({ agents: {}, seenEventIds: [], sequence: 0 });
 /** JSON tuples prevent delimiter collisions in opaque provider identifiers. */
 export const sessionKey = (provider: Provider, sessionId: string): string => JSON.stringify([provider, sessionId]);
@@ -19,7 +22,7 @@ function createAgent(event: AquariumEventV1): AgentState {
     ...(event.actorId !== 'main' ? {parentKey:actorKey(event.provider,event.sessionId,event.parentActorId ?? 'main')} : {}),
     ...(event.projectLabel ? {projectLabel:event.projectLabel}:{}),
     status:'starting',startedAt:event.occurredAt,lastActivityAt:event.occurredAt,statusChangedAt:event.occurredAt,
-    activeTools:{},contextUsedPercent:null,contextSource:'unknown',celebrationCount:0,simulated:event.sessionId.startsWith('demo:'),
+    activeTools:{},contextUsedPercent:null,contextSource:'unknown',celebrationCount:0,simulated:false,
   };
 }
 /** Pure event reducer. Time-based visibility belongs exclusively to projectSnapshot. */
@@ -29,7 +32,7 @@ export function reduceEvent(state: DomainState, input: AquariumEventV1): DomainS
   const key = actorKey(event.provider,event.sessionId,event.actorId);
   const previous = state.agents[key];
   const agent: AgentState = previous ? {...previous,activeTools:{...previous.activeTools}} : createAgent(event);
-  const next: DomainState = {agents:{...state.agents},seenEventIds:[...state.seenEventIds,event.eventId],sequence:state.sequence+1};
+  const next: DomainState = {agents:{...state.agents},seenEventIds:[...state.seenEventIds.slice(-(MAX_RECENT_EVENT_IDS-1)),event.eventId],sequence:state.sequence+1};
   // Even ignored late deliveries receive a sequence, so replay and persistence agree.
   next.agents[key] = agent;
   const parent = next.agents[actorKey(event.provider,event.sessionId)];
@@ -66,6 +69,10 @@ export function reduceEvent(state: DomainState, input: AquariumEventV1): DomainS
       if (endedTurn) break;
       const toolId=event.toolUseId ?? `unpaired:${event.eventId}`;
       agent.activeTools={...agent.activeTools,[toolId]:{id:toolId,category:event.toolCategory ?? 'other',...(event.toolName ? {name:event.toolName}:{}),startedAt:event.occurredAt}};
+      // Pathological never-finishing producers cannot grow the actor indefinitely.
+      // Retain the most recent observed starts; a discarded ID cannot close another tool.
+      const toolIds=Object.keys(agent.activeTools).sort((a,b)=>agent.activeTools[a]!.startedAt-agent.activeTools[b]!.startedAt || a.localeCompare(b));
+      for (const oldId of toolIds.slice(0,Math.max(0,toolIds.length-MAX_ACTIVE_TOOLS))) delete agent.activeTools[oldId];
       agent.lastToolCategory=event.toolCategory ?? 'other';
       if (event.toolName) agent.lastToolName=event.toolName;
       setStatus('using_tool');break;
