@@ -70,4 +70,9 @@ describe('deterministic truthful lifecycle',()=>{
     const state=run(event('turn_completed'),event('turn_started'));
     expect(first(state).status).toBe('turn_done');
   });
+  it('treats prototype-like tool identifiers as opaque values',()=>{
+    const state=run(event('tool_started',1000,{toolUseId:'__proto__'}));
+    expect(Object.keys(first(state).activeTools)).toEqual(['__proto__']);
+    expect(first(run(event('tool_started',1000,{toolUseId:'__proto__'}),event('tool_succeeded',1100,{toolUseId:'__proto__'}))).status).toBe('working');
+  });
 });

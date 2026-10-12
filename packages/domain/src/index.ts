@@ -65,7 +65,7 @@ export function reduceEvent(state: DomainState, input: AquariumEventV1): DomainS
     case 'tool_started': {
       if (endedTurn) break;
       const toolId=event.toolUseId ?? `unpaired:${event.eventId}`;
-      agent.activeTools[toolId]={id:toolId,category:event.toolCategory ?? 'other',...(event.toolName ? {name:event.toolName}:{}),startedAt:event.occurredAt};
+      agent.activeTools={...agent.activeTools,[toolId]:{id:toolId,category:event.toolCategory ?? 'other',...(event.toolName ? {name:event.toolName}:{}),startedAt:event.occurredAt}};
       agent.lastToolCategory=event.toolCategory ?? 'other';
       if (event.toolName) agent.lastToolName=event.toolName;
       setStatus('using_tool');break;
