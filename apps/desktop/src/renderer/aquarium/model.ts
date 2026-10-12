@@ -40,13 +40,14 @@ export function fishName(agent: AgentState, masked = false): string {
 }
 
 /** Presentation only: status is supplied by the domain; movement never invents state. */
-export function positionAt(agent: AgentState, seconds: number, slot: number, count: number, reduced: boolean) {
+export function positionAt(agent: AgentState, seconds: number, slot: number, count: number, reduced: boolean, now = Date.now()) {
   const { seed } = identity(agent);
   const phase = (seed % 628) / 100;
   const t = reduced ? 0 : seconds;
   const lanes = Math.min(count, 8);
   const row = slot % lanes;
-  let x = 0.22 + ((slot * 0.263 + (seed % 100) / 500) % 0.57);
+  const anchors = [0.32, 0.50, 0.66, 0.82, 0.23, 0.58, 0.42, 0.71];
+  let x = anchors[slot % anchors.length]! + ((seed % 31) - 15) / 1000;
   let y = 0.22 + (row / Math.max(lanes - 1, 1)) * 0.48;
   let angle = 0;
   let direction = Math.cos(t * 0.17 + phase) >= 0 ? 1 : -1;
@@ -56,7 +57,7 @@ export function positionAt(agent: AgentState, seconds: number, slot: number, cou
     y += wave * 0.008;
     direction = 1;
   } else if (agent.status === 'ended') {
-    x = Math.min(1.15, x + Math.max(0, Date.now() - (agent.endedAt ?? agent.statusChangedAt)) / 9000);
+    x = Math.min(1.15, x + Math.max(0, now - (agent.endedAt ?? agent.statusChangedAt)) / 9000);
   } else {
     const speed = agent.lastToolCategory === 'shell' && agent.status === 'using_tool' ? 1.8 : 1;
     x += Math.sin(t * 0.17 * speed + phase) * 0.105;
@@ -70,7 +71,7 @@ export function positionAt(agent: AgentState, seconds: number, slot: number, cou
     }
     if (agent.status === 'error') angle += Math.sin(t * 2.2) * 0.07;
     if (agent.status === 'turn_done') {
-      const age = (Date.now() - agent.statusChangedAt) / 1000;
+      const age = (now - agent.statusChangedAt) / 1000;
       if (age < 3 && age >= 0 && !reduced) { y += Math.sin(age * Math.PI * 2 / 3) * 0.045; angle += Math.sin(age * Math.PI * 2 / 3) * 0.23; }
     }
   }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Application, Container, Graphics, Text, type Ticker } from 'pixi.js';
 // This Pixi compatibility module replaces dynamic code generation with CSP-safe functions.
 import 'pixi.js/unsafe-eval';
@@ -101,7 +101,9 @@ function makeCoral(x: number, color: number): Container {
 export function AquariumScene(props: Props) {
   const host = useRef<HTMLDivElement>(null);
   const latest = useRef(props); latest.current = props;
+  const flushPrivacy = useRef<(() => void) | null>(null);
   const [failed, setFailed] = useState(false);
+  useLayoutEffect(() => { flushPrivacy.current?.(); }, [props.masked]);
 
   useEffect(() => {
     const element = host.current!;
@@ -134,6 +136,16 @@ export function AquariumScene(props: Props) {
         const fishLayer = new Container();
         const frontPlants = new Container();
         app.stage.addChild(scenery, backPlants, seaFloor, motes, fishLayer, frontPlants);
+        // Capture must not wait for a battery-saver/hidden-window ticker frame.
+        flushPrivacy.current = () => {
+          for (const agent of latest.current.agents) {
+            const actor = actors.get(agent.key);
+            if (!actor) continue;
+            const label = `${fishName(agent, latest.current.masked)}${agent.simulated ? ' · DEMO' : ''}`;
+            actor.label.text = label; actor.lastLabel = label;
+          }
+          app.render();
+        };
         const rocks = new Graphics(); scenery.addChild(rocks);
         for (let i = 0; i < 16; i++) {
           const foreground = i > 11;
@@ -234,6 +246,7 @@ export function AquariumScene(props: Props) {
     })();
     return () => {
       disposed = true;
+      flushPrivacy.current = null;
       resizeObserver?.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       if (initialized) {
