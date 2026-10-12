@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeClaudeEvent, normalizeClaudeStatus } from './index.js';
+import { normalizeClaudeEvent, normalizeClaudeStatus, normalizeCodexNotification, codexCapabilities } from './index.js';
 const payload=(hook_event_name:string,extra:Record<string,unknown>={})=>({session_id:'real-session',hook_event_name,cwd:'C:\\Projects\\safe-repo',...extra});
 describe('Claude safe normalization',()=>{
   it.each([['SessionStart','session_started'],['UserPromptSubmit','turn_started'],['PreToolUse','tool_started'],['PostToolUse','tool_succeeded'],['PostToolUseFailure','tool_failed'],['Stop','turn_completed'],['StopFailure','turn_failed'],['SessionEnd','session_ended']])('maps %s truthfully',(hook,kind)=>expect(normalizeClaudeEvent(payload(hook))?.kind).toBe(kind));
@@ -8,4 +8,11 @@ describe('Claude safe normalization',()=>{
   it('filters notifications to documented attention signals',()=>{expect(normalizeClaudeEvent(payload('Notification',{notification_type:'auth_success',message:'secret'}))).toBeNull();expect(normalizeClaudeEvent(payload('Notification',{notification_type:'permission_prompt'}))?.attentionReason).toBe('permission');});
   it('does not guess context or confuse account usage',()=>{expect(normalizeClaudeStatus({session_id:'s',rate_limits:{five_hour:{used_percentage:70}}})?.contextUsedPercent).toBeNull();expect(normalizeClaudeStatus({session_id:'s',context_window:{used_percentage:42}})?.contextUsedPercent).toBe(42);expect(normalizeClaudeStatus({session_id:'s',context_window:{used_percentage:101}})).toBeNull();});
   it('rejects unsafe IDs and creates independent sessions',()=>{expect(normalizeClaudeEvent(payload('Stop',{session_id:'../secret'}))).toBeNull();const events=Array.from({length:5},(_,i)=>normalizeClaudeEvent(payload('SessionStart',{session_id:`session-${i}`})));expect(new Set(events.map(e=>e?.sessionId)).size).toBe(5);});
+});
+describe('documented Codex notification adapter',()=>{
+  const notification={type:'agent-turn-complete','thread-id':'thread-1','turn-id':'turn-1',cwd:'/private-parent/repo','input-messages':['secret-prompt'],'last-assistant-message':'secret-output'};
+  it('maps only observed completion and discards private messages',()=>{const event=normalizeCodexNotification(notification);expect(event).toMatchObject({provider:'codex',sessionId:'thread-1',actorId:'main',kind:'turn_completed',projectLabel:'repo'});expect(event).not.toHaveProperty('toolCategory');expect(event).not.toHaveProperty('contextUsedPercent');expect(JSON.stringify(event)).not.toMatch(/secret|private-parent|input-messages|last-assistant/);});
+  it('uses provider turn identity for retry deduplication without colliding across sessions',()=>{const first=normalizeCodexNotification(notification),retry=normalizeCodexNotification(notification),other=normalizeCodexNotification({...notification,'thread-id':'thread-2'});expect(first?.eventId).toBe(retry?.eventId);expect(first?.eventId).not.toBe(other?.eventId);});
+  it('rejects undocumented lifecycle signals and missing/unsafe identity',()=>{expect(normalizeCodexNotification({...notification,type:'approval-requested'})).toBeNull();expect(normalizeCodexNotification({...notification,'thread-id':undefined})).toBeNull();expect(normalizeCodexNotification({...notification,'thread-id':'../private'})).toBeNull();});
+  it('declares partial capability without claiming tool, attention, context or session-end observations',()=>{expect(codexCapabilities).toEqual({sessions:true,toolLifecycle:false,attention:false,subagents:false,contextPercentage:'none',guaranteedSessionEnd:false});});
 });

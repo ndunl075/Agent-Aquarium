@@ -26,4 +26,8 @@ agent-aquarium install claude --yes --status-line
 
 This explicitly wraps the current status-line command. Its original stdin and stdout are preserved, with a bounded 700 ms execution timeout. No original command is invented when none existed. A private sidecar stores the prior configuration; uninstall restores it only while the current wrapper is still Aquarium's. Independently changed status lines are preserved, recursive Aquarium wrappers are refused. The bridge samples at most every two seconds per session and reads only `context_window.used_percentage`, never account rate-limit percentages. Missing/null values remain Unknown. Claude's update cadence can make metrics stale. Status-line commands that need longer than 700 ms should stay unwrapped.
 
-Documentation verified against [Claude hooks](https://code.claude.com/docs/en/hooks) and [status-line JSON](https://code.claude.com/docs/en/statusline) on October 12, 2026. Installed older clients may expose fewer events; Agent Aquarium never infers unobserved activity. Codex integration is not claimed until a supported surface is verified and tested.
+Documentation verified against [Claude hooks](https://code.claude.com/docs/en/hooks) and [status-line JSON](https://code.claude.com/docs/en/statusline) on October 12, 2026. Installed older clients may expose fewer events; Agent Aquarium never infers unobserved activity. Optional Codex notification support has separate limits described below.
+
+## Optional Codex completion notifications
+
+A manually configured Codex CLI notifier can emit completed turns with real thread identity. This provides no active-work, tool, attention, context, subagent or session-end telemetry. See [Codex setup and verification limits](codex.md); automatic TOML editing and Desktop integration are not provided. The lifecycle integration above remains Claude-specific.

@@ -2,13 +2,18 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { normalizeClaudeEvent } from '@aquarium/adapters';
+import { normalizeClaudeEvent, normalizeCodexNotification } from '@aquarium/adapters';
 import { aquariumEventSchema } from '@aquarium/protocol';
 import { aquariumDataDir, claudeSettingsPath, forwardEvent, installClaude, uninstallClaude, previewClaude, installStatusBridge, runStatusBridge, readConnection } from './index.js';
 const args=process.argv.slice(2), isHook=args[0]==='hook', isStatus=args[0]==='status-bridge';
 function stdin(limit=1024*1024,timeout=700):Promise<string> {return new Promise((resolve,reject)=>{let body='',size=0;const timer=setTimeout(()=>{process.stdin.pause();reject(new Error('Input timeout'));},timeout);process.stdin.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>limit){clearTimeout(timer);process.stdin.pause();reject(new Error('Input too large'));}else body+=chunk.toString('utf8');});process.stdin.on('end',()=>{clearTimeout(timer);resolve(body);});process.stdin.on('error',error=>{clearTimeout(timer);reject(error);});});}
 async function main():Promise<void> {
-  if(isHook){if(args[1]!=='claude')return;const event=normalizeClaudeEvent(JSON.parse(await stdin()));if(event)await forwardEvent(event);return;}
+  if(isHook){
+    let event;
+    if(args[1]==='claude')event=normalizeClaudeEvent(JSON.parse(await stdin()));
+    else if(args[1]==='codex') {const input=args[2]??await stdin();if(Buffer.byteLength(input)>1024*1024)return;event=normalizeCodexNotification(JSON.parse(input));}
+    if(event)await forwardEvent(event);return;
+  }
   if(isStatus){if(args[1]==='claude')await runStatusBridge(await stdin());return;}
   if((args[0]==='install'||args[0]==='uninstall')&&args[1]==='claude'){
     const remove=args[0]==='uninstall';
