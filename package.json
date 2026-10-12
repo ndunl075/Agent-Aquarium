@@ -20,7 +20,7 @@
     "start": "node scripts/start.mjs",
     "desktop:deps": "electron-builder install-app-deps",
     "test:desktop": "node scripts/validate/desktop-smoke.mjs",
-    "package": "pnpm build && electron-builder --config apps/desktop/electron-builder.yml",
+    "package": "pnpm build && electron-builder --config apps/desktop/electron-builder.yml --publish never",
     "package:win": "pnpm package --win",
     "cli": "node packages/cli/dist/bin.cjs"
   },
@@ -45,5 +45,7 @@
     "vitest": "5.0.3",
     "tsx": "4.23.15",
     "@playwright/test": "1.64.0"
-  }
+  },
+  "homepage": "https://github.com/ndunl075/Agent-Aquarium",
+  "desktopName": "org.agentaquarium.desktop"
 }
