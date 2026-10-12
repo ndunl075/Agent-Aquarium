@@ -9,4 +9,4 @@ await build({ entryPoints:['apps/desktop/src/preload/index.ts'], outfile:'apps/d
 await build({ entryPoints:['packages/cli/src/bin.ts'], outfile:'apps/desktop/dist/cli.cjs', bundle:true, platform:'node', format:'cjs', alias:aliases });
 await viteBuild({ root:'apps/desktop', base:'./', resolve:{ alias:aliases }, build:{ outDir:'dist/renderer', emptyOutDir:true } });
 await mkdir('packages/cli/dist',{recursive:true});
-await copyFile('apps/desktop/dist/cli.cjs','packages/cli/dist/cli.cjs');
+await copyFile('apps/desktop/dist/cli.cjs','packages/cli/dist/bin.cjs');
