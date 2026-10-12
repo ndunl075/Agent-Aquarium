@@ -1,0 +1,9 @@
+node_modules/
+dist/
+release/
+.worktrees/
+coverage/
+*.log
+.local/
+test-results/
+playwright-report/
