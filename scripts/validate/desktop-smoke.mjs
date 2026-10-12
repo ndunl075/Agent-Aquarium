@@ -1,6 +1,6 @@
 import { _electron as electron } from '@playwright/test';
 import { strict as assert } from 'node:assert';
-import { mkdir,readFile,rm } from 'node:fs/promises';
+import { mkdir,readFile,writeFile,rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import electronPath from 'electron';
@@ -24,7 +24,7 @@ try{
  assert.equal(await page.locator('.fish-card').count(),5);assert.equal(await page.locator('.gpu-fallback').count(),0);
  await page.screenshot({path:resolve(directory,'demo.png')});
  await page.evaluate(()=>window.aquarium.activateDemoMode(false));
- const discovery=JSON.parse(await readFile(resolve(dataDir,'connection.json'),'utf8'));
+ let discovery=JSON.parse(await readFile(resolve(dataDir,'connection.json'),'utf8'));
  const emit=async(event)=>{const response=await fetch(`http://127.0.0.1:${discovery.port}/events`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${discovery.token}`},body:JSON.stringify({version:1,provider:'custom',actorId:'main',occurredAt:Date.now(),...event})});assert.equal(response.status,202);};
  for(let i=0;i<5;i++)await emit({eventId:`session-${i}`,sessionId:`qa-session-${i}`,kind:'session_started',projectLabel:'private-qa-project'});
  snapshot=await page.evaluate(()=>window.aquarium.getSnapshot());assert.equal(snapshot.agents.length,5);assert.equal(snapshot.agents.some(a=>a.simulated),false);assert.equal(snapshot.agents.every(a=>a.contextUsedPercent===null),true);
@@ -58,6 +58,9 @@ try{
  assert.deepEqual(errors,[]);
  await desktop.close();desktop=await electron.launch(launchOptions);const recoveredPage=await desktop.firstWindow();await recoveredPage.waitForFunction(()=>!!window.aquarium);
  const recovered=await recoveredPage.evaluate(()=>window.aquarium.getSnapshot());assert.equal(recovered.agents.length,7);assert.equal(recovered.agents.every(agent=>agent.status==='stale'),true);
+ discovery=JSON.parse(await readFile(resolve(dataDir,'connection.json'),'utf8'));await emit({eventId:'recovered-heartbeat',sessionId:'qa-session-0',kind:'heartbeat'});
+ assert.equal((await recoveredPage.evaluate(()=>window.aquarium.getSnapshot())).agents.find(agent=>agent.sessionId==='qa-session-0'&&agent.actorId==='main').status,'turn_done');
  await recoveredPage.evaluate(()=>window.aquarium.clearLocalData());assert.equal((await recoveredPage.evaluate(()=>window.aquarium.getSnapshot())).agents.length,0);assert.deepEqual(JSON.parse(await readFile(resolve(dataDir,'settings.json'),'utf8')),{});
- console.log(JSON.stringify({ok:true,checks:['five demo fish','seven independent ingested actors','configured bundled hook invocation','turn completion retains fish','subagent identity','unknown context','mini mode','always on top','privacy masking','local screenshot export','GPU fallback','restart recovery','clear local data','no renderer errors'],screenshots:directory}));
+ await writeFile(resolve(dataDir,'settings.json'),'{bad JSON');assert.equal((await recoveredPage.evaluate(()=>window.aquarium.getDiagnostics())).issues.length,1);
+ console.log(JSON.stringify({ok:true,checks:['five demo fish','seven independent ingested actors','configured bundled hook invocation','turn completion retains fish','subagent identity','unknown context','mini mode','always on top','privacy masking','local screenshot export','GPU fallback','restart recovery and heartbeat lifecycle','malformed settings diagnostics','clear local data','no renderer errors'],screenshots:directory}));
 }finally{await desktop.close();await rm(dataDir,{recursive:true,force:true});}

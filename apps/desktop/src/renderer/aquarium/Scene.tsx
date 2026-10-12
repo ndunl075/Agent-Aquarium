@@ -3,7 +3,7 @@ import { Application, Container, Graphics, Text, type Ticker } from 'pixi.js';
 // This Pixi compatibility module replaces dynamic code generation with CSP-safe functions.
 import 'pixi.js/unsafe-eval';
 import type { AgentState } from '@aquarium/protocol';
-import { activity, fishName, identity, positionAt } from './model';
+import { activity, fishName, identity, positionAt, toolFailureIntensity } from './model';
 
 interface Props {
   agents: AgentState[];
@@ -16,7 +16,7 @@ interface Props {
 }
 interface FishActor {
   root: Container; annotations: Container; body: Container; tail: Graphics; fin: Graphics; label: Text;
-  badge: Text; halo: Graphics; shadow: Graphics; lastLabel: string; lastStatus: string;
+  badge: Text; halo: Graphics; failureRing: Graphics; shadow: Graphics; lastLabel: string; lastStatus: string;
 }
 
 function canvasLabel(agent: AgentState, masked: boolean) {
@@ -31,6 +31,8 @@ function makeFish(agent: AgentState): FishActor {
   const shadow = new Graphics().ellipse(0, 52, 42, 6).fill({ color: 0x02141c, alpha: 0.13 });
   const halo = new Graphics().ellipse(0, 0, 64, 46).stroke({ color: p.light, alpha: 0.6, width: 1 });
   halo.visible = false;
+  const failureRing = new Graphics().ellipse(0, 0, 59, 37).stroke({ color: 0xf2af92, alpha: 0.8, width: 1.6 });
+  failureRing.visible = false;
   const body = new Container();
   const tail = new Graphics();
   tail.moveTo(-33, 0).bezierCurveTo(-51, -5, -61, -30, -67, -27)
@@ -73,10 +75,10 @@ function makeFish(agent: AgentState): FishActor {
   label.anchor.set(0.5); label.y = 47;
   const badge = new Text({ text: '', style: { fontFamily: 'Segoe UI, sans-serif', fontSize: 14, fill: 0xffe2ad, fontWeight: '600' } });
   badge.anchor.set(0.5); badge.y = -49;
-  root.addChild(shadow, halo, body);
+  root.addChild(shadow, halo, failureRing, body);
   annotations.addChild(label, badge);
   root.eventMode = 'static'; root.cursor = 'pointer';
-  return { root, annotations, body, tail, fin, label, badge, halo, shadow, lastLabel: '', lastStatus: '' };
+  return { root, annotations, body, tail, fin, label, badge, halo, failureRing, shadow, lastLabel: '', lastStatus: '' };
 }
 
 function makePlant(x: number, height: number, color: number, variant: number): Container {
@@ -209,6 +211,7 @@ export function AquariumScene(props: Props) {
           elapsed += Math.min(ticker.deltaMS, 50) / 1000;
           app.ticker.maxFPS = document.hidden ? 3 : current.batterySaver || current.reduced ? 30 : 60;
           const { width: w, height: h } = app.screen;
+          const now = Date.now();
           if (lastAgents !== current.agents) {
             lastAgents = current.agents;
             const keys = new Set(current.agents.map(a => a.key));
@@ -222,7 +225,8 @@ export function AquariumScene(props: Props) {
           }
           for (const [i, agent] of current.agents.entries()) {
             const actor = actors.get(agent.key)!;
-            const pos = positionAt(agent, elapsed, i, current.agents.length, current.reduced);
+            const pos = positionAt(agent, elapsed, i, current.agents.length, current.reduced, now);
+            const failureIntensity = toolFailureIntensity(agent, now);
             const densityScale = current.agents.length > 12 ? 0.43 : current.agents.length > 5 ? 0.67 : 1;
             const scale = (agent.parentKey ? 0.7 : 1) * (current.mini ? Math.max(0.24, 0.43 * Math.sqrt(5 / Math.max(current.agents.length, 5))) : Math.min(1.08, Math.max(0.55, w / 1050)) * densityScale * Math.min(1, h / 430));
             const topInset = current.mini ? 62 : h < 350 ? 125 : 155;
@@ -239,10 +243,13 @@ export function AquariumScene(props: Props) {
             actor.annotations.alpha = actor.root.alpha;
             actor.label.visible = !current.mini && (current.agents.length <= 12 || current.selected === agent.key);
             actor.halo.visible = current.selected === agent.key;
+            actor.failureRing.visible = failureIntensity > 0;
+            actor.failureRing.alpha = current.reduced ? 0.65 : failureIntensity;
+            actor.failureRing.scale.set(current.reduced ? 1 : 1 + (1 - failureIntensity) * 0.12);
             const label = canvasLabel(agent, current.masked);
             if (actor.lastLabel !== label) { actor.label.text = label; actor.lastLabel = label; }
             const compact = current.mini || current.agents.length > 12;
-            const indicator = compact ? (agent.status === 'waiting' ? '!' : agent.status === 'error' ? '×' : agent.status === 'turn_done' ? '✓' : agent.status === 'stale' ? '?' : '') : agent.status === 'waiting' ? '!  NEEDS YOU' : agent.status === 'error' ? '×  ERROR'
+            const indicator = failureIntensity > 0 ? (compact ? '×' : '×  TOOL FAILED') : compact ? (agent.status === 'waiting' ? '!' : agent.status === 'error' ? '×' : agent.status === 'turn_done' ? '✓' : agent.status === 'stale' ? '?' : '') : agent.status === 'waiting' ? '!  NEEDS YOU' : agent.status === 'error' ? '×  ERROR'
               : agent.status === 'turn_done' ? '✓  DONE' : agent.status === 'stale' ? '?  UNKNOWN'
               : agent.status === 'starting' ? '↗  ARRIVING' : agent.status === 'using_tool' ? activity(agent).toUpperCase() : '';
             if (actor.lastStatus !== indicator) { actor.badge.text = indicator; actor.lastStatus = indicator; }
@@ -273,6 +280,7 @@ export function AquariumScene(props: Props) {
   }, []);
 
   return <div className="scene-wrap">
+    <p role="status" aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' }}>{props.agents.filter(agent => toolFailureIntensity(agent) > 0).map(agent => `A tool failed for ${fishName(agent, props.masked)}. Current activity: ${activity(agent)}.`).join(' ')}</p>
     <div className="light-shafts" aria-hidden="true"><i /><i /><i /></div>
     <div ref={host} className="pixi-host" />
     {failed && <div className="gpu-fallback" role="status">

@@ -20,7 +20,7 @@ export class AquariumStore {
     const prefs=this.db.prepare('SELECT json_value FROM preferences WHERE id=1').get() as {json_value:string}|undefined;
     if(prefs){try{this.preferences=preferencesSchema.parse(JSON.parse(prefs.json_value));}catch{/* Safe defaults for corrupt preferences. */}}
     const saved=this.db.prepare('SELECT json_value FROM state WHERE id=1').get() as {json_value:string}|undefined;
-    if(saved){try{const parsed=JSON.parse(saved.json_value);if(!Number.isSafeInteger(parsed.sequence)||parsed.sequence<0||!Array.isArray(parsed.seenEventIds)||parsed.seenEventIds.some((id:unknown)=>typeof id!=='string'))throw new Error('Invalid state');const agents=Object.fromEntries(Object.entries(parsed.agents).map(([key,value])=>[key,agentStateSchema.parse(value)]));this.state={agents,sequence:parsed.sequence,seenEventIds:parsed.seenEventIds.slice(-10000)};for(const agent of Object.values(this.state.agents)){if(agent.status!=='ended'){agent.status='stale';}}}catch{this.state=createInitialState();}}
+    if(saved){try{const parsed=JSON.parse(saved.json_value);if(!Number.isSafeInteger(parsed.sequence)||parsed.sequence<0||!Array.isArray(parsed.seenEventIds)||parsed.seenEventIds.some((id:unknown)=>typeof id!=='string'))throw new Error('Invalid state');const agents=Object.fromEntries(Object.entries(parsed.agents).map(([key,value])=>[key,agentStateSchema.parse(value)]));this.state={agents,sequence:parsed.sequence,seenEventIds:parsed.seenEventIds.slice(-10000),recovering:Object.fromEntries(Object.values(agents).filter(agent=>agent.status!=='ended').map(agent=>[agent.key,Math.max(agent.lastActivityAt,agent.statusChangedAt)]))};}catch{this.state=createInitialState();}}
     this.prune();
   }
   accept(event:AquariumEventV1):boolean{
@@ -39,7 +39,7 @@ export class AquariumStore {
   prune(){
     const now=Date.now();this.db.prepare('DELETE FROM events WHERE ingested_at < ?').run(now-this.preferences.eventRetentionDays*86400000);
     if(!this.preferences.historyEnabled)this.db.exec('DELETE FROM events');
-    for(const [key,agent]of Object.entries(this.state.agents))if((agent.endedAt??agent.lastActivityAt)<now-this.preferences.sessionRetentionDays*86400000){delete this.state.agents[key];this.db.prepare('DELETE FROM agents WHERE actor_key=?').run(key);}
+    for(const [key,agent]of Object.entries(this.state.agents))if((agent.endedAt??agent.lastActivityAt)<now-this.preferences.sessionRetentionDays*86400000){delete this.state.agents[key];if(this.state.recovering)delete this.state.recovering[key];this.db.prepare('DELETE FROM agents WHERE actor_key=?').run(key);}
     this.db.exec('DELETE FROM sessions WHERE session_key NOT IN (SELECT session_key FROM agents)');
     this.db.prepare('INSERT OR REPLACE INTO state VALUES(1,?)').run(JSON.stringify(this.state));
     // Dedup IDs are bounded by the reducer; retain live summary even with history off.
