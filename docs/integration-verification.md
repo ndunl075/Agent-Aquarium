@@ -1,0 +1,13 @@
+# Integration verification
+
+Automated acceptance uses the actual bundled Node companion, production loopback receiver, production SQLite store, and domain reducer. All provider inputs are synthetic sanitized fixtures; these tests do not claim a real five-terminal Claude run or clean-machine installer verification.
+
+Run `pnpm test` after installing dependencies. The CLI subprocess tests bundle their own temporary executable, isolate both Claude settings and Aquarium data, and avoid the user's real configuration. They verify silent exit zero for malformed/oversized hook input, bounded completion when stdin stays open, app-down queuing, five real-shaped independent IDs in one repository, preservation of existing status-line stdout, reversible installation, and literal executable paths containing spaces and shell metacharacters.
+
+Pipeline acceptance verifies authenticated hook-normalized delivery, five distinct persisted actors, real subagent identity, completion deduplication, rejection of browser origins/wrong tokens/private fields, app-down spool replay exactly once, and stale restoration after SQLite reopens. It never relies on Demo Mode.
+
+Desktop installers should install hooks using Claude's documented direct exec form: `command` is the actual installed executable and `args` contains literal arguments ending in `hook`, `claude`. This avoids shell expansion and differences between Git Bash and PowerShell on Windows. The npm command shim uses fixed shell form because Windows `.cmd` shims cannot be spawned as native executables. Direct exec configuration and shell configuration are both recognized for reversible removal. See the [official hook command fields](https://code.claude.com/docs/en/hooks#command-hook-fields).
+
+The optional status bridge preserves the prior command's original input and output, but bounds that command to 700 ms. Its overall process deadline is 1.6 seconds; lifecycle hooks have a 1.2 second fail-open deadline. These are upper bounds, not a claim that cold Electron startup meets the architecture's under-200 ms target. Context updates sample at most every two seconds and null stays Unknown. A slow preexisting status line should remain unwrapped.
+
+Release acceptance still requires actual supported Claude sessions and subagents, restart/resume behavior, a clean Windows install/launch/uninstall, and installed hook discovery. Test macOS/Linux packaged executables separately. Benchmark cold Electron hook startup separately from warm Node hook delivery and record machine details. The architecture's performance and real-provider demo targets remain acceptance gates until measured.

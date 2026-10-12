@@ -2,12 +2,12 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { claudeSettingsPath } from './paths.js';
-export interface ClaudeInstallOptions { settingsPath?: string; command?: string; statusBridge?: boolean }
+export interface ClaudeInstallOptions { settingsPath?: string; command?: string; executable?: string; args?: string[]; statusBridge?: boolean }
 export interface InstallResult { ok:boolean; changed:boolean; message:string; restartRequired?:boolean; preview?:string }
 const EVENTS = ['SessionStart','UserPromptSubmit','PreToolUse','PostToolUse','PostToolUseFailure','PermissionRequest','Notification','SubagentStart','SubagentStop','Stop','StopFailure','SessionEnd'];
 type Settings=Record<string,any>;
 const MARKER='Agent Aquarium observer';
-function own(handler:any):boolean {return handler?.type==='command' && handler?.statusMessage===MARKER && typeof handler.command==='string' && handler.command.endsWith(' hook claude');}
+function own(handler:any):boolean {return handler?.type==='command' && handler?.statusMessage===MARKER && typeof handler.command==='string' && (handler.command.endsWith(' hook claude') || (Array.isArray(handler.args) && handler.args.at(-2)==='hook' && handler.args.at(-1)==='claude'));}
 function validate(settings:unknown):asserts settings is Settings {
   if(!settings || typeof settings!=='object' || Array.isArray(settings)) throw new Error('Claude settings must be a JSON object');
   const hooks=(settings as Settings).hooks; if(hooks!==undefined && (!hooks || typeof hooks!=='object'||Array.isArray(hooks))) throw new Error('Invalid hooks configuration');
@@ -17,7 +17,9 @@ async function read(file:string):Promise<{settings:Settings;raw:string|null}> { 
 function transform(settings:Settings,options:ClaudeInstallOptions,remove=false):Settings {
   const next=structuredClone(settings); next.hooks??={};
   for(const name of Object.keys(next.hooks)) { next.hooks[name]=next.hooks[name].map((group:any)=>({...group,hooks:group.hooks.filter((handler:any)=>!own(handler))})).filter((group:any)=>group.hooks.length); if(!next.hooks[name].length)delete next.hooks[name]; }
-  if(!remove) for(const name of EVENTS) { next.hooks[name]??=[]; next.hooks[name].push({...(name==='Notification'?{matcher:'permission_prompt|idle_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input'}:{}),hooks:[{type:'command',command:`${options.command??'agent-aquarium'} hook claude`,timeout:2,statusMessage:MARKER}]}); }
+  if(options.executable && (/[\0\r\n]/.test(options.executable) || options.args?.some(arg=>typeof arg!=='string'||/[\0\r\n]/.test(arg))))throw new Error('Invalid executable configuration');
+  const launch=options.executable?{command:options.executable,args:[...(options.args??[]),'hook','claude']}:{command:`${options.command??'agent-aquarium'} hook claude`};
+  if(!remove) for(const name of EVENTS) { next.hooks[name]??=[]; next.hooks[name].push({...(name==='Notification'?{matcher:'permission_prompt|idle_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input'}:{}),hooks:[{type:'command',...launch,timeout:2,statusMessage:MARKER}]}); }
   if(!Object.keys(next.hooks).length)delete next.hooks;
   return next;
 }
