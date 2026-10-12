@@ -4,10 +4,16 @@ directories:
   output: release
 files:
   - apps/desktop/dist/**
+  - '!apps/desktop/dist/cli/**'
+  - '!apps/desktop/dist/cli.cjs'
   - package.json
   - LICENSE
+  - docs/THIRD_PARTY_NOTICES.md
   - '!**/*.map'
 asar: true
+extraResources:
+  - from: apps/desktop/dist/cli
+    to: cli
 asarUnpack:
   - '**/better-sqlite3/**'
 npmRebuild: true
@@ -16,21 +22,24 @@ protocols:
     schemes:
       - agent-aquarium
 win:
+  icon: assets/aquarium.ico
   target:
     - nsis
     - portable
-  signAndEditExecutable: false
+  signExecutable: false
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
 mac:
+  icon: assets/aquarium.png
   target:
     - dmg
     - zip
   category: public.app-category.developer-tools
 linux:
+  icon: assets/aquarium.png
   target:
     - AppImage
     - deb

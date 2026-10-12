@@ -12,5 +12,6 @@ const api:AquariumDesktopAPI={
  setWindowMode:async mode=>{await ipcRenderer.invoke(IPC_CHANNELS.window,mode);},
  clearLocalData:async()=>{await ipcRenderer.invoke(IPC_CHANNELS.clear);},
  captureScreenshot:()=>ipcRenderer.invoke(IPC_CHANNELS.capture),
+ checkForUpdates:()=>ipcRenderer.invoke(IPC_CHANNELS.updates),
 };
 contextBridge.exposeInMainWorld('aquarium',Object.freeze(api));
