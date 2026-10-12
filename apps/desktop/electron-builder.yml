@@ -39,6 +39,8 @@ mac:
     - zip
   category: public.app-category.developer-tools
 linux:
+  maintainer: Agent Aquarium contributors <ndunl075@users.noreply.github.com>
+  syncDesktopName: true
   icon: assets/aquarium.png
   target:
     - AppImage
