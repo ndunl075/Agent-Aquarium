@@ -1,0 +1,12 @@
+import { build } from 'esbuild';
+import { build as viteBuild } from 'vite';
+import { mkdir, copyFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+const aliases = Object.fromEntries(['protocol','domain','adapters','cli'].map(name => [`@aquarium/${name}`, resolve(`packages/${name}/src/index.ts`)]));
+await mkdir('apps/desktop/dist', { recursive:true });
+await build({ entryPoints:['apps/desktop/src/main/index.ts'], outfile:'apps/desktop/dist/main.cjs', bundle:true, platform:'node', format:'cjs', external:['electron','better-sqlite3'], alias:aliases, sourcemap:true });
+await build({ entryPoints:['apps/desktop/src/preload/index.ts'], outfile:'apps/desktop/dist/preload.cjs', bundle:true, platform:'node', format:'cjs', external:['electron'], alias:aliases });
+await build({ entryPoints:['packages/cli/src/bin.ts'], outfile:'apps/desktop/dist/cli.cjs', bundle:true, platform:'node', format:'cjs', alias:aliases });
+await viteBuild({ root:'apps/desktop', base:'./', resolve:{ alias:aliases }, build:{ outDir:'dist/renderer', emptyOutDir:true } });
+await mkdir('packages/cli/dist',{recursive:true});
+await copyFile('apps/desktop/dist/cli.cjs','packages/cli/dist/cli.cjs');

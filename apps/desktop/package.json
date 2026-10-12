@@ -1,0 +1,5 @@
+{
+  "name": "@aquarium/desktop", "version": "0.1.0", "private": true,
+  "type": "module", "main": "dist/main.cjs",
+  "dependencies": { "@aquarium/protocol": "workspace:*", "@aquarium/domain": "workspace:*", "@aquarium/adapters": "workspace:*", "@aquarium/cli": "workspace:*" }
+}
